@@ -172,13 +172,15 @@ def set_webhook():
     print(f"Webhook successfully pointed to: {render_url}")
 
 # 3. ICT FVG Strategy Logic
+# এই অংশটুকু আপনার কোডের check_fvg() এর ভেতর বদলে নিন
 def check_fvg():
     global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME
     try:
         ticker = yf.Ticker(CURRENT_SYMBOL)
-        df = ticker.history(period="1d", interval="1m")
+        # period="1d" এর বদলে "3d" দিলে Yahoo সহজে ব্লক করে না
+        df = ticker.history(period="3d", interval="1m") 
         
-        if len(df) < 4:
+        if df.empty or len(df) < 4:
             return
 
         c1_high = df['High'].iloc[-4]
