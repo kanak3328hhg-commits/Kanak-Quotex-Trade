@@ -19,14 +19,29 @@ VALID_PAIRS = {
     "NZDCAD": "NZDCAD=X", "CADJPY": "CADJPY=X", "CADCHF": "CADCHF=X", "CHFJPY": "CHFJPY=X"
 }
 
-# গ্লোবাল ভেরিয়েবল (যা সরাসরি র‍্যাম মেমোরিতে থাকবে, ফাইলে নয়)
+# গ্লোবাল ভেরিয়বল (র্যাম মেমোরি)
 CURRENT_SYMBOL = "EURUSD=X"
 SYMBOL_DISPLAY_NAME = "EURUSD"
+
+# 2. Telegram Configurations
+TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1003684590469")
+RENDER_URL = "https://kanak-quotex-trade.onrender.com/webhook"
 
 @app.route('/')
 def home():
     global SYMBOL_DISPLAY_NAME
     return f"Bot is running! Current Active Pair: {SYMBOL_DISPLAY_NAME}"
+
+# স্বয়ংক্রিয় Webhook সেটআপ ফাংশন (যা এখন অটোমেটিক কাজ করবে)
+def auto_refresh_webhook():
+    """টেলিগ্রামের Webhook লিংক অটোমেটিক রিফ্রেশ করার ফাংশন"""
+    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={RENDER_URL}"
+    try:
+        response = requests.get(url, timeout=10)
+        print(f"🤖 [Auto-Webhook] Refreshed: {response.json()}")
+    except Exception as e:
+        print(f"❌ [Auto-Webhook] Error: {e}")
 
 # টেলিগ্রাম থেকে চ্যানেলের নতুন মেসেজ রিসিভ করার রুট
 @app.route('/webhook', methods=['POST'])
@@ -39,7 +54,6 @@ def webhook():
         text = post.get("text", "").strip().upper()
         
         if text in VALID_PAIRS:
-            # সরাসরি গ্লোবাল মেমোরি আপডেট (কোনো ফাইলের ঝামেলা নেই)
             CURRENT_SYMBOL = VALID_PAIRS[text]
             SYMBOL_DISPLAY_NAME = text
             
@@ -52,11 +66,10 @@ def webhook():
             )
             send_telegram_message(confirm_msg)
             
+            # 🔥 ম্যাজিক: পেয়ার চেঞ্জ হওয়া মাত্রই ব্যাকগ্রাউন্ডে অটো-রিফ্রেশ কল হবে
+            auto_refresh_webhook()
+            
     return jsonify({"status": "success"})
-
-# 2. Telegram Configurations
-TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1003684590469")
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -64,18 +77,10 @@ def send_telegram_message(message):
     try: requests.post(url, json=payload)
     except Exception as e: print(f"Telegram Error: {e}")
 
-def set_webhook():
-    time.sleep(5)
-    render_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}.onrender.com/webhook"
-    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={render_url}"
-    requests.get(url)
-    print(f"Webhook connected to: {render_url}")
-
 # 3. ICT FVG Strategy Logic
 def check_fvg():
     global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME
     try:
-        # সরাসরি র‍্যামের গ্লোবাল ভেরিয়েবল থেকে নাম নেবে
         symbol_to_scan = CURRENT_SYMBOL
         display_name_to_scan = SYMBOL_DISPLAY_NAME
         
@@ -137,21 +142,24 @@ def bot_loop():
     print("Trading Bot Loop Started...")
     send_telegram_message("🚀 Quotex FVG Control Bot is LIVE!\n\n👉 পেয়ার পরিবর্তন করতে চ্যানেলে পেয়ারের নাম লিখুন (যেমন: GBPUSD)")
     
+    # প্রথমবার চালুর সময় একবার অটো-লিংক রিসেট করে নেবে
+    auto_refresh_webhook()
+    
     while True:
         try:
             check_fvg()
         except Exception as loop_err:
             print(f"Loop function error: {loop_err}")
         
+        # প্রতি ৫ম মিনিটে ব্যাকগ্রাউন্ডে অটো-লিংক রিফ্রেশ হবে যেন রাস্তা কখনো ব্লক না হয়
+        if int(time.time()) % 300 < 60:
+            auto_refresh_webhook()
+            
         time.sleep(60) 
 
 if __name__ == "__main__":
-    # থ্রেডগুলোকে সরাসরি গ্লোবাল মেমোরি অ্যাক্সেস দেওয়ার জন্য daemon টাস্ক
     t1 = Thread(target=bot_loop, daemon=True)
     t1.start()
-    
-    t2 = Thread(target=set_webhook, daemon=True)
-    t2.start()
     
     # মূল থ্রেডে ফ্ল্যাস্ক সার্ভার চালু
     from werkzeug.serving import make_server
