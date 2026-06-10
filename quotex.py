@@ -8,18 +8,31 @@ from flask import Flask, request, jsonify
 # 1. Flask Web Server Setup
 app = Flask('')
 
-# গ্লোবাল ভেরিয়েবল (ডিফল্ট পেয়ার হিসেবে EURUSD থাকবে)
-CURRENT_SYMBOL = "EURUSD=X"
-SYMBOL_DISPLAY_NAME = "EURUSD"
+# পেয়ারের নাম স্থায়ীভাবে সেভ রাখার জন্য ফাইলের নাম
+STATE_FILE = "active_pair.txt"
+
+def get_active_pair():
+    """ফাইল থেকে বর্তমানে অ্যাক্টিভ পেয়ারের তথ্য পড়ে নিয়ে আসে"""
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r") as f:
+            data = f.read().strip().split(",")
+            if len(data) == 2:
+                return data[0], data[1]
+    return "EURUSD=X", "EURUSD"  # ফাইল না থাকলে ডিফল্ট
+
+def set_active_pair(symbol, display_name):
+    """নতুন সিলেক্ট করা পেয়ারের তথ্য ফাইলে লিখে রাখে"""
+    with open(STATE_FILE, "w") as f:
+        f.write(f"{symbol},{display_name}")
 
 @app.route('/')
 def home():
-    return f"Bot is running! Current Active Pair: {SYMBOL_DISPLAY_NAME}"
+    _, display_name = get_active_pair()
+    return f"Bot is running! Current Active Pair: {display_name}"
 
-# টেলিগ্রাম বাটন ক্লিকের ডেটা রিসিভ করার জন্য Webhook রুট
+# telegram বাটন ক্লিকের ডেটা রিসিভ করার জন্য Webhook রুট
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME
     data = request.get_json()
     
     if "callback_query" in data:
@@ -48,14 +61,16 @@ def webhook():
         }
         
         if callback_data in pairs_map:
-            CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME = pairs_map[callback_data]
+            symbol, display_name = pairs_map[callback_data]
+            # নতুন পেয়ার ফাইলে সেভ করুন
+            set_active_pair(symbol, display_name)
             
             # ১. চ্যানেলে নতুন মেসেজ দিয়ে কনফার্ম করা
             alert_msg = (
                 f"⚙️ **Quotex Pair Configuration Update**\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"✅ **Success:** Active Pair Changed!\n"
-                f"🎯 **Now Scanning:** `{SYMBOL_DISPLAY_NAME}`\n"
+                f"🎯 **Now Scanning:** `{display_name}`\n"
                 f"📊 *বট এখন শুধুমাত্র এই পেয়ারের ICT FVG সিগন্যাল পাঠাবে।*"
             )
             send_telegram_message(alert_msg)
@@ -83,8 +98,9 @@ def send_telegram_message(message):
 
 # ডাইনামিক কিবোর্ড জেনারেটর
 def generate_keyboard():
+    _, current_display_name = get_active_pair()
     def label(name):
-        return f"✅ {name}" if SYMBOL_DISPLAY_NAME == name else name
+        return f"✅ {name}" if current_display_name == name else name
 
     keyboard = {
         "inline_keyboard": [
@@ -172,14 +188,13 @@ def set_webhook():
     print(f"Webhook successfully pointed to: {render_url}")
 
 # 3. ICT FVG Strategy Logic
-# এই অংশটুকু আপনার কোডের check_fvg() এর ভেতর বদলে নিন
-# এই অংশটুকু আপনার কোডের check_fvg() এর ভেতর বদলে নিন
 def check_fvg():
-    global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME
     try:
-        ticker = yf.Ticker(CURRENT_SYMBOL)
-        # period="1d" এর বদলে "3d" দিলে Yahoo সহজে ব্লক করে না
-        df = ticker.history(period="3d", interval="1m") 
+        # প্রতি মিনিটে ফাইল থেকে তাজা পেয়ারের নাম রিড করবে
+        current_symbol, display_name = get_active_pair()
+        
+        ticker = yf.Ticker(current_symbol)
+        df = ticker.history(period="3d", interval="1m") # Rate Limit এড়াতে 3d ব্যবহার করা হয়েছে
         
         if df.empty or len(df) < 4:
             return
@@ -195,7 +210,7 @@ def check_fvg():
             gap = c3_low - c1_high
             entry_price = c1_high
             msg = (
-                f"🟢 **Quotex ICT UP SIGNAL!** ({SYMBOL_DISPLAY_NAME})\n"
+                f"🟢 **Quotex ICT UP SIGNAL!** ({display_name})\n"
                 f"⏱ Timeframe: 1m\n"
                 f"📊 Current Price: {current_price:.5f}\n"
                 f"🎯 **Best Entry Price: {entry_price:.5f}** (or below)\n"
@@ -208,7 +223,7 @@ def check_fvg():
             gap = c1_low - c3_high
             entry_price = c1_low
             msg = (
-                f"🔴 **Quotex ICT DOWN SIGNAL!** ({SYMBOL_DISPLAY_NAME})\n"
+                f"🔴 **Quotex ICT DOWN SIGNAL!** ({display_name})\n"
                 f"⏱ Timeframe: 1m\n"
                 f"📊 Current Price: {current_price:.5f}\n"
                 f"🎯 **Best Entry Price: {entry_price:.5f}** (or above)\n"
@@ -229,7 +244,6 @@ def bot_loop():
         check_fvg()
         time.sleep(60) 
 
-# Gunicorn যাতে ব্যাকগ্রাউন্ড থ্রেড রান করতে পারে তার সমাধান
 def start_background_tasks():
     t1 = Thread(target=bot_loop)
     t1.daemon = True
@@ -239,10 +253,8 @@ def start_background_tasks():
     t2.daemon = True
     t2.start()
 
-# প্রথম রিকোয়েস্ট আসার আগেই থ্রেডগুলো ব্যাকগ্রাউন্ডে চালু হয়ে যাবে
 @app.before_request
 def initialize():
-    # একবারই যাতে রান হয় তার জন্য গ্লোবাল ভেরিয়েবল চেক
     if not getattr(app, '_tasks_started', False):
         start_background_tasks()
         app._tasks_started = True
