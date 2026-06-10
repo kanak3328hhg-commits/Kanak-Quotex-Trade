@@ -17,8 +17,9 @@ def run_server():
     app.run(host='0.0.0.0', port=port)
 
 # 2. Telegram Configurations
-TOKEN = os.environ.get("TELEGRAM_TOKEN", "YOUR_BOT_TOKEN_HERE")
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "YOUR_CHAT_ID_HERE")
+TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1003684590469")
+
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
