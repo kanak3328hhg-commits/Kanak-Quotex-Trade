@@ -8,11 +8,11 @@ from flask import Flask, request, jsonify
 # 1. Flask Web Server Setup
 app = Flask('')
 
-# কারেন্সি পেয়ারের সাথে গোল্ড ও সিলভার যোগ করা তালিকা
+# গোল্ড ও সিলভারের জন্য সরাসরি স্পট রেট (=X) ব্যবহার করা হয়েছে
 VALID_PAIRS = {
-    # 🌟 Metals (Gold & Silver)
-    "XAUUSD": "GC=F", "GOLD": "GC=F",
-    "XAGUSD": "SI=F", "SILVER": "SI=F",
+    # 🌟 Metals (Gold & Silver Spot Rates to match Quotex)
+    "XAUUSD": "GC=X", "GOLD": "GC=X",
+    "XAGUSD": "SI=X", "SILVER": "SI=X",
     
     # 📊 Forex Currency Pairs
     "EURUSD": "EURUSD=X", "GBPUSD": "GBPUSD=X", "AUDUSD": "AUDUSD=X", "NZDUSD": "NZDUSD=X",
@@ -27,7 +27,6 @@ VALID_PAIRS = {
 # গ্লোবাল ভেরিয়বল (র্যাম মেমোরি)
 CURRENT_SYMBOL = "EURUSD=X"
 SYMBOL_DISPLAY_NAME = "EURUSD"
-
 
 # 2. Telegram Configurations
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
@@ -65,7 +64,7 @@ def webhook():
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"✅ **Success:** Active Pair Changed!\n"
                 f"🎯 **Now Scanning:** `{text}`\n"
-                f"📊 *বট এখন শুধুমাত্র এই পেয়ারের ICT FVG সিগন্যাল পাঠাবে।*"
+                f"📊 *বট এখন স্পট মার্কেট ডাটা ট্র্যাক করবে।*"
             )
             send_telegram_message(confirm_msg)
             auto_refresh_webhook()
@@ -85,22 +84,27 @@ def check_fvg():
         symbol_to_scan = CURRENT_SYMBOL
         display_name_to_scan = SYMBOL_DISPLAY_NAME
         
+        # ⚡ ক্যাশ জ্যাম এড়াতে নতুন অবজেক্ট ও ২ দিনের ফ্রেশ ডাটা ফেচ
         ticker = yf.Ticker(symbol_to_scan)
         df = ticker.history(period="2d", interval="1m")
         
         if df.empty or len(df) < 4:
-            send_telegram_message(f"⚠️ **{display_name_to_scan}**: Data fetching error. Retrying next minute...")
+            send_telegram_message(f"⚠️ **{display_name_to_scan}**: Data fetching error. Retrying...")
             return
 
         c1_high = df['High'].iloc[-4]
         c1_low  = df['Low'].iloc[-4]
         c3_high = df['High'].iloc[-2]
         c3_low  = df['Low'].iloc[-2]
+        
+        # 🎯 লাইভ প্রাইস যেন লেট না হয়, তাই একদম লেটেস্ট রিয়েল-টাইম ক্লোজ রেট
         current_price = df['Close'].iloc[-1]
 
-        # গোল্ড, সিলভার ও JPY পেয়ারের জন্য দশমিকের ঘর ২ বা ৩ টা হয়, বাকিদের ৫ টা
-        if "JPY" in display_name_to_scan or display_name_to_scan in ["GOLD", "XAUUSD", "SILVER", "XAGUSD"]:
-            dec_places = 2 if display_name_to_scan in ["GOLD", "XAUUSD"] else 3
+        # দশমিকের ঘর সেটআপ (গোল্ডের জন্য ৩ ঘর করা হলো যাতে কোটেক্সের সাথে মিলে)
+        if display_name_to_scan in ["GOLD", "XAUUSD"]:
+            dec_places = 3
+        elif "JPY" in display_name_to_scan or display_name_to_scan in ["SILVER", "XAGUSD"]:
+            dec_places = 3
         else:
             dec_places = 5
 
@@ -136,7 +140,7 @@ def check_fvg():
                 f"❌ **Quotex Signal Status** ({display_name_to_scan})\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"📢 **Status:** No Signal Available Right Now!\n"
-                f"⏳ *বট পরবর্তী মিনিটে আবার মার্কেট স্ক্যান করবে।* \n"
+                f"⏳ *বট পরবর্তী ২০ সেকেন্ডে আবার মার্কেট স্ক্যান করবে।* \n"
                 f"📊 Current Price: {current_price:.{dec_places}f}"
             )
             send_telegram_message(no_signal_msg)
@@ -145,7 +149,6 @@ def check_fvg():
         print(f"Data Fetch Error: {e}")
         
 # 4. Main Bot Loop
-# আপনার কোডের একেবারে নিচের এই ফাংশনটুকু শুধু বদলে দিন
 def bot_loop():
     print("Trading Bot Loop Started...")
     send_telegram_message("🚀 Quotex FVG Control Bot is LIVE!\n\n👉 পেয়ার পরিবর্তন করতে চ্যানেলে পেয়ারের নাম লিখুন (যেমন: GOLD বা XAUUSD)")
@@ -158,12 +161,11 @@ def bot_loop():
         except Exception as loop_err:
             print(f"Loop function error: {loop_err}")
         
-        # প্রতি ৫ম মিনিটে ব্যাকগ্রাউন্ডে অটো-লিংক রিফ্রেশ হবে
         if int(time.time()) % 300 < 20:
             auto_refresh_webhook()
             
-        # ⏱ সময় ৬০ সেকেন্ড থেকে কমিয়ে ২০ সেকেন্ড করা হলো (মেসেজ ফাস্ট করার জন্য)
-        time.sleep(20)
+        # ⏱ ২০ সেকেন্ডের ফাস্ট লুপ ট্র্যাকিং
+        time.sleep(20) 
 
 if __name__ == "__main__":
     t1 = Thread(target=bot_loop, daemon=True)
