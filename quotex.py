@@ -145,6 +145,7 @@ def check_fvg():
         print(f"Data Fetch Error: {e}")
         
 # 4. Main Bot Loop
+# আপনার কোডের একেবারে নিচের এই ফাংশনটুকু শুধু বদলে দিন
 def bot_loop():
     print("Trading Bot Loop Started...")
     send_telegram_message("🚀 Quotex FVG Control Bot is LIVE!\n\n👉 পেয়ার পরিবর্তন করতে চ্যানেলে পেয়ারের নাম লিখুন (যেমন: GOLD বা XAUUSD)")
@@ -157,10 +158,12 @@ def bot_loop():
         except Exception as loop_err:
             print(f"Loop function error: {loop_err}")
         
-        if int(time.time()) % 300 < 60:
+        # প্রতি ৫ম মিনিটে ব্যাকগ্রাউন্ডে অটো-লিংক রিফ্রেশ হবে
+        if int(time.time()) % 300 < 20:
             auto_refresh_webhook()
             
-        time.sleep(60) 
+        # ⏱ সময় ৬০ সেকেন্ড থেকে কমিয়ে ২০ সেকেন্ড করা হলো (মেসেজ ফাস্ট করার জন্য)
+        time.sleep(20)
 
 if __name__ == "__main__":
     t1 = Thread(target=bot_loop, daemon=True)
