@@ -24,7 +24,7 @@ VALID_PAIRS = {
 CURRENT_SYMBOL = "EURUSD=X"
 SYMBOL_DISPLAY_NAME = "EURUSD"
 
-T# 2. Telegram Configurations
+# 2. Telegram Configurations
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1003684590469")
 RENDER_URL = "https://kanak-quotex-trade.onrender.com/webhook"
