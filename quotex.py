@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify
 # 1. Flask Web Server Setup
 app = Flask('')
 
-# গ্লোবাল ভেরিয়েবল (ডিফল্ট পেয়ার হিসেবে EURUSD থাকবে)
+# গলোবাল ভেরিয়েবল (ডিফল্ট পেয়ার হিসেবে EURUSD থাকবে)
 CURRENT_SYMBOL = "EURUSD=X"
 SYMBOL_DISPLAY_NAME = "EURUSD"
 
@@ -27,7 +27,7 @@ def webhook():
         callback_data = callback_query["data"]
         message_id = callback_query["message"]["message_id"]
         
-        # ২৮টি পেয়ারের সম্পূর্ণ সঠিক ম্যাপিং ডিকশনারি
+        # ২৮টি পেয়ারের সম্পূর্ণ সঠিক ম্যাপিং ডিকশনারি
         pairs_map = {
             "p_eurusd": ("EURUSD=X", "EURUSD"), "p_gbpusd": ("GBPUSD=X", "GBPUSD"),
             "p_audusd": ("AUDUSD=X", "AUDUSD"), "p_nzdusd": ("NZDUSD=X", "NZDUSD"),
@@ -50,17 +50,17 @@ def webhook():
         if callback_data in pairs_map:
             CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME = pairs_map[callback_data]
             
-            # ১. চ্যানেলে নতুন মেসেজ দিয়ে কনফার্ম করা
+            # ১. চ্যানেলে নতুন মেসেজ দিয়ে কনফার্ম করা
             alert_msg = (
                 f"⚙️ **Quotex Pair Configuration Update**\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"✅ **Success:** Active Pair Changed!\n"
                 f"🎯 **Now Scanning:** `{SYMBOL_DISPLAY_NAME}`\n"
-                f"📊 *বট এখন শুধুমাত্র এই পেয়ারের ICT FVG সিগন্যাল পাঠাবে।*"
+                f"📊 *বট এখন শুধুমাত্র এই পেয়ারের ICT FVG সিগন্যাল পাঠাবে।*"
             )
             send_telegram_message(alert_msg)
             
-            # ২. মূল কন্ট্রোল প্যানেলের বাটনগুলো আপডেট করে সিলেক্টেড পেয়ারের পাশে ✅ বসানো
+            # ২. মূল কন্ট্রোল প্যানেলের বাটনগুলো আপডেট করে সিলেক্টেড পেয়ারের পাশে ✅ বসানো
             update_pair_selection_panel(message_id)
             
             # টেলিগ্রাম ইন্টারনাল রেসপন্স সাকসেস করা
@@ -72,6 +72,7 @@ def webhook():
 # 2. Telegram Configurations
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1003684590469")
+
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -146,7 +147,7 @@ def send_pair_selection_panel():
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
-        "text": f"🎛 **Quotex Master Control Panel**\n\nযেকোনো একটি পেয়ার সিলেক্ট করুন। বর্তমানে্যাক্টিভ পেয়ারের পাশে একটি টিকচিহ্ন (✅) দেখতে পাবেন।",
+        "text": f"🎛 **Quotex Master Control Panel**\n\nযেকোনো একটি পেয়ার সিলেক্ট করুন। বর্তমানে একটি টিকচিহ্ন (✅) দেখতে পাবেন।",
         "reply_markup": generate_keyboard(),
         "parse_mode": "Markdown"
     }
@@ -232,3 +233,8 @@ if __name__ == "__main__":
     
     t2 = Thread(target=set_webhook)
     t2.start()
+    
+    from werkzeug.serving import make_server
+    port = int(os.environ.get("PORT", 8080))
+    srv = make_server('0.0.0.0', port, app)
+    srv.serve_forever()
