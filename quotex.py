@@ -173,6 +173,7 @@ def set_webhook():
 
 # 3. ICT FVG Strategy Logic
 # এই অংশটুকু আপনার কোডের check_fvg() এর ভেতর বদলে নিন
+# এই অংশটুকু আপনার কোডের check_fvg() এর ভেতর বদলে নিন
 def check_fvg():
     global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME
     try:
