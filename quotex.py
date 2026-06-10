@@ -91,13 +91,18 @@ def set_webhook():
     print(f"Webhook connected to: {render_url}")
 
 # 3. ICT FVG Strategy Logic
+# আপনার কোডের এই ফাংশনটুকু শুধু বদলে দিন
 def check_fvg():
     try:
+        # প্রতি মিনিটে ফাইল থেকে অ্যাক্টিভ পেয়ারের নাম রিড করবে
         current_symbol, display_name = get_active_pair()
+        
         ticker = yf.Ticker(current_symbol)
-        df = ticker.history(period="3d", interval="1m")
+        df = ticker.history(period="3d", interval="1m") # Rate Limit এড়াতে 3d বাফার
         
         if df.empty or len(df) < 4:
+            # যদি কোনো কারণে ডাটা ফেচ না হয়
+            send_telegram_message(f"⚠️ **{display_name}**: Data fetching error. Retrying next minute...")
             return
 
         c1_high = df['High'].iloc[-4]
@@ -106,7 +111,7 @@ def check_fvg():
         c3_low  = df['Low'].iloc[-2]
         current_price = df['Close'].iloc[-1]
 
-        # Bullish FVG
+        # ১. Bullish FVG (UP Signal Check)
         if c1_high < c3_low:
             gap = c3_low - c1_high
             entry_price = c1_high
@@ -119,7 +124,7 @@ def check_fvg():
             )
             send_telegram_message(msg)
 
-        # Bearish FVG
+        # ২. Bearish FVG (DOWN Signal Check)
         elif c1_low > c3_high:
             gap = c1_low - c3_high
             entry_price = c1_low
@@ -132,9 +137,20 @@ def check_fvg():
             )
             send_telegram_message(msg)
             
+        # ৩. যদি কোনো সিগন্যাল না থাকে (আপনার নতুন রিকোয়েস্ট)
+        else:
+            no_signal_msg = (
+                f"❌ **Quotex Signal Status** ({display_name})\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"📢 **Status:** No Signal Available Right Now!\n"
+                f"⏳ *বট পরবর্তী মিনিটে আবার মার্কেট স্ক্যান করবে।* \n"
+                f"📊 Current Price: {current_price:.5f}"
+            )
+            send_telegram_message(no_signal_msg)
+            
     except Exception as e:
         print(f"Data Fetch Error: {e}")
-
+        
 # 4. Main Bot Loop
 def bot_loop():
     print("Trading Bot Loop Started...")
