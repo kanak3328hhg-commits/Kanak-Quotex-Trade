@@ -25,38 +25,32 @@ def webhook():
     if "callback_query" in data:
         callback_query = data["callback_query"]
         callback_data = callback_query["data"]
+        message_id = callback_query["message"]["message_id"]
         
         # ২৮টি পেয়ারের সম্পূর্ণ ম্যাপিং ডিকশনারি
         pairs_map = {
-            # USD-Based
             "p_eurusd": ("EURUSD=X", "EURUSD"), "p_gbpusd": ("GBPUSD=X", "GBPUSD"),
             "p_audusd": ("AUDUSD=X", "AUDUSD"), "p_nzdusd": ("NZDUSD=X", "NZDUSD"),
             "p_usdjpy": ("USDJPY=X", "USDJPY"), "p_usdchf": ("USDCHF=X", "USDCHF"),
             "p_usdcad": ("USDCAD=X", "USDCAD"),
-            # EUR Crosses
             "p_eurgbp": ("EURGBP=X", "EURGBP"), "p_eurjpy": ("EURJPY=X", "EURJPY"),
             "p_eurchf": ("EURCHF=X", "EURCHF"), "p_eurcad": ("EURCAD=X", "EURCAD"),
             "p_euraud": ("EURAUD=X", "EURAUD"), "p_eurnzd": ("EURNZD=X", "EURNZD"),
-            # GBP Crosses
             "p_gbpjpy": ("GBPJPY=X", "GBPJPY"), "p_gbpchf": ("GBPCHF=X", "GBPCHF"),
             "p_gbpcad": ("GBPCAD=X", "GBPCAD"), "p_gbpaud": ("GBPAUD=X", "GBPAUD"),
             "p_gbpnzd": ("GBPNZD=X", "GBPNZD"),
-            # AUD Crosses
-            "p_audjpy": ("AUDJPY=X", "AUDJPY"), "p_audchf": ("AUDCHF=X", "AUDCHF"),
+            "p_audjpy": ("AUDJPY=X", "AUDJPY"), "p_audchf": ("GBPCHF=X", "AUDCHF"),
             "p_audcad": ("AUDCAD=X", "AUDCAD"), "p_audnzd": ("AUDNZD=X", "AUDNZD"),
-            # NZD Crosses
             "p_nzdjpy": ("NZDJPY=X", "NZDJPY"), "p_nzdchf": ("NZDCHF=X", "NZDCHF"),
             "p_nzdcad": ("NZDCAD=X", "NZDCAD"),
-            # CAD Crosses
             "p_cadjpy": ("CADJPY=X", "CADJPY"), "p_cadchf": ("CADCHF=X", "CADCHF"),
-            # CHF Cross
             "p_chfjpy": ("CHFJPY=X", "CHFJPY")
         }
         
         if callback_data in pairs_map:
             CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME = pairs_map[callback_data]
             
-            # 📢 চ্যানেলে একটি সুন্দর নতুন মেসেজ পাঠিয়ে কনফার্ম করা (যাতে আপনি বুঝতে পারেন)
+            # ১. চ্যানেলে নতুন মেসেজ দিয়ে কনফার্ম করা
             alert_msg = (
                 f"⚙️ **Quotex Pair Configuration Update**\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
@@ -66,7 +60,10 @@ def webhook():
             )
             send_telegram_message(alert_msg)
             
-            # টেলিগ্রামকে ইন্টারনাল কনফার্মেশন পাঠানো (এরর এড়ানোর জন্য)
+            # ২. মূল কন্ট্রোল প্যানেলের বাটনগুলো আপডেট করে সিলেক্টেড পেয়ারের পাশে ✅ বসানো
+            update_pair_selection_panel(message_id)
+            
+            # টেলিগ্রাম ইন্টারনাল রেসপন্স সাকসেস করা
             callback_id = callback_query["id"]
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": callback_id})
             
@@ -85,79 +82,90 @@ def send_telegram_message(message):
     except Exception as e:
         print(f"Telegram Error: {e}")
 
-# সম্পূর্ণ ২৮টি পেয়ারের বাটন প্যানেল তৈরি
-def send_pair_selection_panel():
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    
+# ডাইনামিক কিবোর্ড জেনারেটর (সিলেক্টেড পেয়ারের পাশে ✅ বসানোর জন্য)
+def generate_keyboard():
+    def label(name, code):
+        # বর্তমান পেয়ারের নামের সাথে মিললে ✅ যোগ হবে, নয়তো সাধারণ নাম থাকবে
+        return f"✅ {name}" if SYMBOL_DISPLAY_NAME == name else name
+
     keyboard = {
         "inline_keyboard": [
-            # --- USD Based ---
             [{"text": "🔹 USD BASED 🔹", "callback_data": "none"}],
             [
-                {"text": "EURUSD", "callback_data": "p_eurusd"},
-                {"text": "GBPUSD", "callback_data": "p_gbpusd"},
-                {"text": "AUDUSD", "callback_data": "p_audusd"}
+                {"text": label("EURUSD", "p_eurusd"), "callback_data": "p_eurusd"},
+                {"text": label("GBPUSD", "p_gbpusd"), "callback_data": "p_gbpusd"},
+                {"text": label("AUDUSD", "p_audusd"), "callback_data": "p_audusd"}
             ],
             [
-                {"text": "NZDUSD", "callback_data": "p_nzdusd"},
-                {"text": "USDJPY", "callback_data": "p_usdjpy"},
-                {"text": "USDCHF", "callback_data": "p_usdchf"},
-                {"text": "USDCAD", "callback_data": "p_usdcad"}
+                {"text": label("NZDUSD", "p_nzdusd"), "callback_data": "p_nzdusd"},
+                {"text": label("USDJPY", "p_usdjpy"), "callback_data": "p_usdjpy"},
+                {"text": label("USDCHF", "p_usdchf"), "callback_data": "p_usdchf"},
+                {"text": label("USDCAD", "p_usdcad"), "callback_data": "p_usdcad"}
             ],
-            # --- EUR Crosses ---
             [{"text": "🔹 EUR CROSSES 🔹", "callback_data": "none"}],
             [
-                {"text": "EURGBP", "callback_data": "p_eurgbp"},
-                {"text": "EURJPY", "callback_data": "p_eurjpy"},
-                {"text": "EURCHF", "callback_data": "p_eurchf"}
+                {"text": label("EURGBP", "p_eurgbp"), "callback_data": "p_eurgbp"},
+                {"text": label("EURJPY", "p_eurjpy"), "callback_data": "p_eurjpy"},
+                {"text": label("EURCHF", "p_eurchf"), "callback_data": "p_eurchf"}
             ],
             [
-                {"text": "EURCAD", "callback_data": "p_eurcad"},
-                {"text": "EURAUD", "callback_data": "p_euraud"},
-                {"text": "EURNZD", "callback_data": "p_eurnzd"}
+                {"text": label("EURCAD", "p_eurcad"), "callback_data": "p_eurcad"},
+                {"text": label("EURAUD", "p_euraud"), "callback_data": "p_euraud"},
+                {"text": label("EURNZD", "p_eurnzd"), "callback_data": "p_eurnzd"}
             ],
-            # --- GBP Crosses ---
             [{"text": "🔹 GBP CROSSES 🔹", "callback_data": "none"}],
             [
-                {"text": "GBPJPY", "callback_data": "p_gbpjpy"},
-                {"text": "GBPCHF", "callback_data": "p_gbpchf"},
-                {"text": "GBPCAD", "callback_data": "p_gbpcad"}
+                {"text": label("GBPJPY", "p_gbpjpy"), "callback_data": "p_gbpjpy"},
+                {"text": label("GBPCHF", "p_gbpchf"), "callback_data": "p_gbpchf"},
+                {"text": label("GBPCAD", "p_gbpcad"), "callback_data": "p_gbpcad"}
             ],
             [
-                {"text": "GBPAUD", "callback_data": "p_gbpaud"},
-                {"text": "GBPNZD", "callback_data": "p_gbpnzd"}
+                {"text": label("GBPAUD", "p_gbpaud"), "callback_data": "p_gbpaud"},
+                {"text": label("GBPNZD", "p_gbpnzd"), "callback_data": "p_gbpnzd"}
             ],
-            # --- Other Crosses ---
             [{"text": "🔹 AUD / NZD / CAD / CHF 🔹", "callback_data": "none"}],
             [
-                {"text": "AUDJPY", "callback_data": "p_audjpy"},
-                {"text": "AUDCHF", "callback_data": "p_audchf"},
-                {"text": "AUDCAD", "callback_data": "p_audcad"},
-                {"text": "AUDNZD", "callback_data": "p_audnzd"}
+                {"text": label("AUDJPY", "p_audjpy"), "callback_data": "p_audjpy"},
+                {"text": label("AUDCHF", "p_audchf"), "callback_data": "p_audchf"},
+                {"text": label("AUDCAD", "p_audcad"), "callback_data": "p_audcad"},
+                {"text": label("AUDNZD", "p_audnzd"), "callback_data": "p_audnzd"}
             ],
             [
-                {"text": "NZDJPY", "callback_data": "p_nzdjpy"},
-                {"text": "NZDCHF", "callback_data": "p_nzdchf"},
-                {"text": "NZDCAD", "callback_data": "p_nzdcad"}
+                {"text": label("NZDJPY", "p_nzdjpy"), "callback_data": "p_nzdjpy"},
+                {"text": label("NZDCHF", "p_nzdchf"), "callback_data": "p_nzdchf"},
+                {"text": label("NZDCAD", "p_nzdcad"), "callback_data": "p_nzdcad"}
             ],
             [
-                {"text": "CADJPY", "callback_data": "p_cadjpy"},
-                {"text": "CADCHF", "callback_data": "p_cadchf"},
-                {"text": "CHFJPY", "callback_data": "p_chfjpy"}
+                {"text": label("CADJPY", "p_cadjpy"), "callback_data": "p_cadjpy"},
+                {"text": label("CADCHF", "p_cadchf"), "callback_data": "p_cadchf"},
+                {"text": label("CHFJPY", "p_chfjpy"), "callback_data": "p_chfjpy"}
             ]
         ]
     }
-    
+    return keyboard
+
+# প্রথমবার প্যানেল পাঠানোর ফাংশন
+def send_pair_selection_panel():
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
-        "text": "🎛 **Quotex Master Control Panel**\n\nযেকোনো একটি পেয়ার সিলেক্ট করুন। বট তাৎক্ষণিকভাবে শুধুমাত্র ওই পেয়ারটি স্ক্যান করা শুরু করবে এবং বাকি সব পেয়ারের মেসেজ পাঠানো বন্ধ রাখবে।",
-        "reply_markup": keyboard,
+        "text": f"🎛 **Quotex Master Control Panel**\n\nযেকোনো একটি পেয়ার সিলেক্ট করুন। বর্তমানে অ্যাক্টিভ পেয়ারের পাশে একটি টিকচিহ্ন (✅) দেখতে পাবেন।",
+        "reply_markup": generate_keyboard(),
         "parse_mode": "Markdown"
     }
-    try:
-        requests.post(url, json=payload)
-    except Exception as e:
-        print(f"Panel Error: {e}")
+    try: requests.post(url, json=payload)
+    except Exception as e: print(f"Panel Error: {e}")
+
+# বাটন ক্লিক করার পর প্যানেল এডিট/আপডেট করার ফাংশন
+def update_pair_selection_panel(message_id):
+    url = f"https://api.telegram.org/bot{TOKEN}/editMessageReplyMarkup"
+    payload = {
+        "chat_id": CHAT_ID,
+        "message_id": message_id,
+        "reply_markup": generate_keyboard()
+    }
+    try: requests.post(url, json=payload)
+    except Exception as e: print(f"Update Panel Error: {e}")
 
 # Webhook কানেকশন সেটআপ
 def set_webhook():
@@ -171,7 +179,6 @@ def set_webhook():
 def check_fvg():
     global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME
     try:
-        # বর্তমানে সিলেক্ট থাকা টোকেনটি রিড করা
         ticker = yf.Ticker(CURRENT_SYMBOL)
         df = ticker.history(period="1d", interval="1m")
         
@@ -184,7 +191,7 @@ def check_fvg():
         c3_low  = df['Low'].iloc[-2]
         current_price = df['Close'].iloc[-1]
 
-        # Bullish FVG (UP)
+        # Bullish FVG
         if c1_high < c3_low:
             gap = c3_low - c1_high
             entry_price = c1_high
@@ -197,7 +204,7 @@ def check_fvg():
             )
             send_telegram_message(msg)
 
-        # Bearish FVG (DOWN)
+        # Bearish FVG
         elif c1_low > c3_high:
             gap = c1_low - c3_high
             entry_price = c1_low
