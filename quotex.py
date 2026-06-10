@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify
 # 1. Flask Web Server Setup
 app = Flask('')
 
-# গলোবাল ভেরিয়েবল (ডিফল্ট পেয়ার হিসেবে EURUSD থাকবে)
+# গ্লোবাল ভেরিয়েবল (ডিফল্ট পেয়ার হিসেবে EURUSD থাকবে)
 CURRENT_SYMBOL = "EURUSD=X"
 SYMBOL_DISPLAY_NAME = "EURUSD"
 
@@ -72,7 +72,6 @@ def webhook():
 # 2. Telegram Configurations
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1003684590469")
-
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -227,13 +226,26 @@ def bot_loop():
         check_fvg()
         time.sleep(60) 
 
-if __name__ == "__main__":
+# Gunicorn যাতে ব্যাকগ্রাউন্ড থ্রেড রান করতে পারে তার সমাধান
+def start_background_tasks():
     t1 = Thread(target=bot_loop)
+    t1.daemon = True
     t1.start()
     
     t2 = Thread(target=set_webhook)
+    t2.daemon = True
     t2.start()
-    
+
+# প্রথম রিকোয়েস্ট আসার আগেই থ্রেডগুলো ব্যাকগ্রাউন্ডে চালু হয়ে যাবে
+@app.before_request
+def initialize():
+    # একবারই যাতে রান হয় তার জন্য গ্লোবাল ভেরিয়েবল চেক
+    if not getattr(app, '_tasks_started', False):
+        start_background_tasks()
+        app._tasks_started = True
+
+if __name__ == "__main__":
+    start_background_tasks()
     from werkzeug.serving import make_server
     port = int(os.environ.get("PORT", 8080))
     srv = make_server('0.0.0.0', port, app)
