@@ -8,13 +8,13 @@ from flask import Flask, request, jsonify
 # 1. Flask Web Server Setup
 app = Flask('')
 
-# গোল্ড ও সিলভারের জন্য সরাসরি স্পট রেট (=X) ব্যবহার করা হয়েছে
+# 🌟 গোল্ড ও সিলভারের জন্য ১০০% ওয়ার্কিং ১-মিনিট স্পট সিম্বল দেওয়া হয়েছে
 VALID_PAIRS = {
-    # 🌟 Metals (Gold & Silver Spot Rates to match Quotex)
-    "XAUUSD": "GC=X", "GOLD": "GC=X",
-    "XAGUSD": "SI=X", "SILVER": "SI=X",
+    # Metals (Yahoo Finance Active 1m Spot Symbols)
+    "XAUUSD": "XAUUSD=X", "GOLD": "XAUUSD=X",
+    "XAGUSD": "XAGUSD=X", "SILVER": "XAGUSD=X",
     
-    # 📊 Forex Currency Pairs
+    # Forex Currency Pairs
     "EURUSD": "EURUSD=X", "GBPUSD": "GBPUSD=X", "AUDUSD": "AUDUSD=X", "NZDUSD": "NZDUSD=X",
     "USDJPY": "USDJPY=X", "USDCHF": "USDCHF=X", "USDCAD": "USDCAD=X", "EURGBP": "EURGBP=X",
     "EURJPY": "EURJPY=X", "EURCHF": "EURCHF=X", "EURCAD": "EURCAD=X", "EURAUD": "EURAUD=X",
@@ -24,7 +24,6 @@ VALID_PAIRS = {
     "NZDCAD": "NZDCAD=X", "CADJPY": "CADJPY=X", "CADCHF": "CADCHF=X", "CHFJPY": "CHFJPY=X"
 }
 
-# গ্লোবাল ভেরিয়বল (র্যাম মেমোরি)
 CURRENT_SYMBOL = "EURUSD=X"
 SYMBOL_DISPLAY_NAME = "EURUSD"
 
@@ -48,14 +47,18 @@ def auto_refresh_webhook():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME
+    global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME, CHAT_ID
     data = request.get_json()
     
     if "channel_post" in data:
         post = data["channel_post"]
         text = post.get("text", "").strip().upper()
         
+        # স্বয়ংক্রিয়ভাবে একটিভ চ্যানেলের আইডি ডিটেক্ট করার লজিক
+        incoming_chat_id = str(post["chat"]["id"])
+        
         if text in VALID_PAIRS:
+            CHAT_ID = incoming_chat_id
             CURRENT_SYMBOL = VALID_PAIRS[text]
             SYMBOL_DISPLAY_NAME = text
             
@@ -64,7 +67,7 @@ def webhook():
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"✅ **Success:** Active Pair Changed!\n"
                 f"🎯 **Now Scanning:** `{text}`\n"
-                f"📊 *বট এখন স্পট মার্কেট ডাটা ট্র্যাক করবে।*"
+                f"📊 *বট এখন প্রতি মিনিটে এই পেয়ারের লাইভ ডাটা চেক করবে।*"
             )
             send_telegram_message(confirm_msg)
             auto_refresh_webhook()
@@ -84,26 +87,27 @@ def check_fvg():
         symbol_to_scan = CURRENT_SYMBOL
         display_name_to_scan = SYMBOL_DISPLAY_NAME
         
-        # ⚡ ক্যাশ জ্যাম এড়াতে নতুন অবজেক্ট ও ২ দিনের ফ্রেশ ডাটা ফেচ
-        ticker = yf.Ticker(symbol_to_scan)
+        # নিরাপদ ব্রাউজার সেশন হেডার
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
+        
+        ticker = yf.Ticker(symbol_to_scan, session=session)
         df = ticker.history(period="2d", interval="1m")
         
         if df.empty or len(df) < 4:
-            send_telegram_message(f"⚠️ **{display_name_to_scan}**: Data fetching error. Retrying...")
+            print(f"⚠️ {display_name_to_scan}: Data empty on Yahoo. Retrying...")
             return
 
         c1_high = df['High'].iloc[-4]
         c1_low  = df['Low'].iloc[-4]
         c3_high = df['High'].iloc[-2]
         c3_low  = df['Low'].iloc[-2]
-        
-        # 🎯 লাইভ প্রাইস যেন লেট না হয়, তাই একদম লেটেস্ট রিয়েল-টাইম ক্লোজ রেট
         current_price = df['Close'].iloc[-1]
 
-        # দশমিকের ঘর সেটআপ (গোল্ডের জন্য ৩ ঘর করা হলো যাতে কোটেক্সের সাথে মিলে)
-        if display_name_to_scan in ["GOLD", "XAUUSD"]:
-            dec_places = 3
-        elif "JPY" in display_name_to_scan or display_name_to_scan in ["SILVER", "XAGUSD"]:
+        # গোল্ড, সিলভার এবং JPY এর জন্য দশমিকের পর ৩ ঘর ফিক্সড
+        if display_name_to_scan in ["GOLD", "XAUUSD", "SILVER", "XAGUSD"] or "JPY" in display_name_to_scan:
             dec_places = 3
         else:
             dec_places = 5
@@ -140,7 +144,7 @@ def check_fvg():
                 f"❌ **Quotex Signal Status** ({display_name_to_scan})\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"📢 **Status:** No Signal Available Right Now!\n"
-                f"⏳ *বট পরবর্তী ২০ সেকেন্ডে আবার মার্কেট স্ক্যান করবে।* \n"
+                f"⏳ *বট পরবর্তী মিনিটে আবার মার্কেট স্ক্যান করবে।* \n"
                 f"📊 Current Price: {current_price:.{dec_places}f}"
             )
             send_telegram_message(no_signal_msg)
@@ -161,11 +165,10 @@ def bot_loop():
         except Exception as loop_err:
             print(f"Loop function error: {loop_err}")
         
-        if int(time.time()) % 300 < 20:
+        if int(time.time()) % 300 < 60:
             auto_refresh_webhook()
             
-        # ⏱ ২০ সেকেন্ডের ফাস্ট লুপ ট্র্যাকিং
-        time.sleep(20) 
+        time.sleep(60) 
 
 if __name__ == "__main__":
     t1 = Thread(target=bot_loop, daemon=True)
