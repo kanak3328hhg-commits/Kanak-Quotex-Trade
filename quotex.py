@@ -8,8 +8,13 @@ from flask import Flask, request, jsonify
 # 1. Flask Web Server Setup
 app = Flask('')
 
-# ২৮টি ভ্যালিড পেয়ারের তালিকা
+# কারেন্সি পেয়ারের সাথে গোল্ড ও সিলভার যোগ করা তালিকা
 VALID_PAIRS = {
+    # 🌟 Metals (Gold & Silver)
+    "XAUUSD": "GC=F", "GOLD": "GC=F",
+    "XAGUSD": "SI=F", "SILVER": "SI=F",
+    
+    # 📊 Forex Currency Pairs
     "EURUSD": "EURUSD=X", "GBPUSD": "GBPUSD=X", "AUDUSD": "AUDUSD=X", "NZDUSD": "NZDUSD=X",
     "USDJPY": "USDJPY=X", "USDCHF": "USDCHF=X", "USDCAD": "USDCAD=X", "EURGBP": "EURGBP=X",
     "EURJPY": "EURJPY=X", "EURCHF": "EURCHF=X", "EURCAD": "EURCAD=X", "EURAUD": "EURAUD=X",
@@ -23,6 +28,7 @@ VALID_PAIRS = {
 CURRENT_SYMBOL = "EURUSD=X"
 SYMBOL_DISPLAY_NAME = "EURUSD"
 
+
 # 2. Telegram Configurations
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1003684590469")
@@ -33,9 +39,7 @@ def home():
     global SYMBOL_DISPLAY_NAME
     return f"Bot is running! Current Active Pair: {SYMBOL_DISPLAY_NAME}"
 
-# স্বয়ংক্রিয় Webhook সেটআপ ফাংশন (যা এখন অটোমেটিক কাজ করবে)
 def auto_refresh_webhook():
-    """টেলিগ্রামের Webhook লিংক অটোমেটিক রিফ্রেশ করার ফাংশন"""
     url = f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={RENDER_URL}"
     try:
         response = requests.get(url, timeout=10)
@@ -43,7 +47,6 @@ def auto_refresh_webhook():
     except Exception as e:
         print(f"❌ [Auto-Webhook] Error: {e}")
 
-# টেলিগ্রাম থেকে চ্যানেলের নতুন মেসেজ রিসিভ করার রুট
 @app.route('/webhook', methods=['POST'])
 def webhook():
     global CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME
@@ -65,8 +68,6 @@ def webhook():
                 f"📊 *বট এখন শুধুমাত্র এই পেয়ারের ICT FVG সিগন্যাল পাঠাবে।*"
             )
             send_telegram_message(confirm_msg)
-            
-            # 🔥 ম্যাজিক: পেয়ার চেঞ্জ হওয়া মাত্রই ব্যাকগ্রাউন্ডে অটো-রিফ্রেশ কল হবে
             auto_refresh_webhook()
             
     return jsonify({"status": "success"})
@@ -85,7 +86,7 @@ def check_fvg():
         display_name_to_scan = SYMBOL_DISPLAY_NAME
         
         ticker = yf.Ticker(symbol_to_scan)
-        df = ticker.history(period="3d", interval="1m")
+        df = ticker.history(period="2d", interval="1m")
         
         if df.empty or len(df) < 4:
             send_telegram_message(f"⚠️ **{display_name_to_scan}**: Data fetching error. Retrying next minute...")
@@ -97,6 +98,12 @@ def check_fvg():
         c3_low  = df['Low'].iloc[-2]
         current_price = df['Close'].iloc[-1]
 
+        # গোল্ড, সিলভার ও JPY পেয়ারের জন্য দশমিকের ঘর ২ বা ৩ টা হয়, বাকিদের ৫ টা
+        if "JPY" in display_name_to_scan or display_name_to_scan in ["GOLD", "XAUUSD", "SILVER", "XAGUSD"]:
+            dec_places = 2 if display_name_to_scan in ["GOLD", "XAUUSD"] else 3
+        else:
+            dec_places = 5
+
         # ১. Bullish FVG
         if c1_high < c3_low:
             gap = c3_low - c1_high
@@ -104,9 +111,9 @@ def check_fvg():
             msg = (
                 f"🟢 **Quotex ICT UP SIGNAL!** ({display_name_to_scan})\n"
                 f"⏱ Timeframe: 1m\n"
-                f"📊 Current Price: {current_price:.5f}\n"
-                f"🎯 **Best Entry Price: {entry_price:.5f}** (or below)\n"
-                f"📐 Gap Size: {gap:.5f}"
+                f"📊 Current Price: {current_price:.{dec_places}f}\n"
+                f"🎯 **Best Entry Price: {entry_price:.{dec_places}f}** (or below)\n"
+                f"📐 Gap Size: {gap:.{dec_places}f}"
             )
             send_telegram_message(msg)
 
@@ -117,9 +124,9 @@ def check_fvg():
             msg = (
                 f"🔴 **Quotex ICT DOWN SIGNAL!** ({display_name_to_scan})\n"
                 f"⏱ Timeframe: 1m\n"
-                f"📊 Current Price: {current_price:.5f}\n"
-                f"🎯 **Best Entry Price: {entry_price:.5f}** (or above)\n"
-                f"📐 Gap Size: {gap:.5f}"
+                f"📊 Current Price: {current_price:.{dec_places}f}\n"
+                f"🎯 **Best Entry Price: {entry_price:.{dec_places}f}** (or above)\n"
+                f"📐 Gap Size: {gap:.{dec_places}f}"
             )
             send_telegram_message(msg)
             
@@ -130,7 +137,7 @@ def check_fvg():
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"📢 **Status:** No Signal Available Right Now!\n"
                 f"⏳ *বট পরবর্তী মিনিটে আবার মার্কেট স্ক্যান করবে।* \n"
-                f"📊 Current Price: {current_price:.5f}"
+                f"📊 Current Price: {current_price:.{dec_places}f}"
             )
             send_telegram_message(no_signal_msg)
             
@@ -140,9 +147,8 @@ def check_fvg():
 # 4. Main Bot Loop
 def bot_loop():
     print("Trading Bot Loop Started...")
-    send_telegram_message("🚀 Quotex FVG Control Bot is LIVE!\n\n👉 পেয়ার পরিবর্তন করতে চ্যানেলে পেয়ারের নাম লিখুন (যেমন: GBPUSD)")
+    send_telegram_message("🚀 Quotex FVG Control Bot is LIVE!\n\n👉 পেয়ার পরিবর্তন করতে চ্যানেলে পেয়ারের নাম লিখুন (যেমন: GOLD বা XAUUSD)")
     
-    # প্রথমবার চালুর সময় একবার অটো-লিংক রিসেট করে নেবে
     auto_refresh_webhook()
     
     while True:
@@ -151,7 +157,6 @@ def bot_loop():
         except Exception as loop_err:
             print(f"Loop function error: {loop_err}")
         
-        # প্রতি ৫ম মিনিটে ব্যাকগ্রাউন্ডে অটো-লিংক রিফ্রেশ হবে যেন রাস্তা কখনো ব্লক না হয়
         if int(time.time()) % 300 < 60:
             auto_refresh_webhook()
             
@@ -161,7 +166,6 @@ if __name__ == "__main__":
     t1 = Thread(target=bot_loop, daemon=True)
     t1.start()
     
-    # মূল থ্রেডে ফ্ল্যাস্ক সার্ভার চালু
     from werkzeug.serving import make_server
     port = int(os.environ.get("PORT", 8080))
     srv = make_server('0.0.0.0', port, app)
