@@ -56,13 +56,19 @@ def webhook():
         if callback_data in pairs_map:
             CURRENT_SYMBOL, SYMBOL_DISPLAY_NAME = pairs_map[callback_data]
             
-            # চ্যানেলে মেসেজ দিয়ে কনফার্ম করা
-            alert_msg = f"🔄 **Active Pair Changed to: {SYMBOL_DISPLAY_NAME}**\nNow analyzing this pair only!"
+            # 📢 চ্যানেলে একটি সুন্দর নতুন মেসেজ পাঠিয়ে কনফার্ম করা (যাতে আপনি বুঝতে পারেন)
+            alert_msg = (
+                f"⚙️ **Quotex Pair Configuration Update**\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"✅ **Success:** Active Pair Changed!\n"
+                f"🎯 **Now Scanning:** `{SYMBOL_DISPLAY_NAME}`\n"
+                f"📊 *বট এখন শুধুমাত্র এই পেয়ারের ICT FVG সিগন্যাল পাঠাবে।*"
+            )
             send_telegram_message(alert_msg)
             
-            # টেলিগ্রাম পপ-আপ নোটিফিকেশন সাকসেস করা
+            # টেলিগ্রামকে ইন্টারনাল কনফার্মেশন পাঠানো (এরর এড়ানোর জন্য)
             callback_id = callback_query["id"]
-            requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": callback_id, "text": f"Switched to {SYMBOL_DISPLAY_NAME}"})
+            requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": callback_id})
             
     return jsonify({"status": "success"})
 
@@ -210,7 +216,7 @@ def check_fvg():
 # 4. Main Bot Loop
 def bot_loop():
     print("Trading Bot Loop Started...")
-    send_telegram_message("🚀 Quotex 28-Pair FVG Control Bot is LIVE!")
+    send_telegram_message("🚀 Quotex 28-Pair FVG Control Bot with Live Alerts is LIVE!")
     send_pair_selection_panel()
     
     while True:
