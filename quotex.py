@@ -27,7 +27,7 @@ def webhook():
         callback_data = callback_query["data"]
         message_id = callback_query["message"]["message_id"]
         
-        # ২৮টি পেয়ারের সম্পূর্ণ ম্যাপিং ডিকশনারি
+        # ২৮টি পেয়ারের সম্পূর্ণ সঠিক ম্যাপিং ডিকশনারি
         pairs_map = {
             "p_eurusd": ("EURUSD=X", "EURUSD"), "p_gbpusd": ("GBPUSD=X", "GBPUSD"),
             "p_audusd": ("AUDUSD=X", "AUDUSD"), "p_nzdusd": ("NZDUSD=X", "NZDUSD"),
@@ -39,7 +39,7 @@ def webhook():
             "p_gbpjpy": ("GBPJPY=X", "GBPJPY"), "p_gbpchf": ("GBPCHF=X", "GBPCHF"),
             "p_gbpcad": ("GBPCAD=X", "GBPCAD"), "p_gbpaud": ("GBPAUD=X", "GBPAUD"),
             "p_gbpnzd": ("GBPNZD=X", "GBPNZD"),
-            "p_audjpy": ("AUDJPY=X", "AUDJPY"), "p_audchf": ("GBPCHF=X", "AUDCHF"),
+            "p_audjpy": ("AUDJPY=X", "AUDJPY"), "p_audchf": ("AUDCHF=X", "AUDCHF"),
             "p_audcad": ("AUDCAD=X", "AUDCAD"), "p_audnzd": ("AUDNZD=X", "AUDNZD"),
             "p_nzdjpy": ("NZDJPY=X", "NZDJPY"), "p_nzdchf": ("NZDCHF=X", "NZDCHF"),
             "p_nzdcad": ("NZDCAD=X", "NZDCAD"),
@@ -73,7 +73,6 @@ def webhook():
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "8264008675:AAEHzakAXPZeNVZKWlvYHRWboyjAuUhg0QM") 
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1003684590469")
 
-
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
@@ -82,81 +81,78 @@ def send_telegram_message(message):
     except Exception as e:
         print(f"Telegram Error: {e}")
 
-# ডাইনামিক কিবোর্ড জেনারেটর (সিলেক্টেড পেয়ারের পাশে ✅ বসানোর জন্য)
+# ডাইনামিক কিবোর্ড জেনারেটর
 def generate_keyboard():
-    def label(name, code):
-        # বর্তমান পেয়ারের নামের সাথে মিললে ✅ যোগ হবে, নয়তো সাধারণ নাম থাকবে
+    def label(name):
         return f"✅ {name}" if SYMBOL_DISPLAY_NAME == name else name
 
     keyboard = {
         "inline_keyboard": [
             [{"text": "🔹 USD BASED 🔹", "callback_data": "none"}],
             [
-                {"text": label("EURUSD", "p_eurusd"), "callback_data": "p_eurusd"},
-                {"text": label("GBPUSD", "p_gbpusd"), "callback_data": "p_gbpusd"},
-                {"text": label("AUDUSD", "p_audusd"), "callback_data": "p_audusd"}
+                {"text": label("EURUSD"), "callback_data": "p_eurusd"},
+                {"text": label("GBPUSD"), "callback_data": "p_gbpusd"},
+                {"text": label("AUDUSD"), "callback_data": "p_audusd"}
             ],
             [
-                {"text": label("NZDUSD", "p_nzdusd"), "callback_data": "p_nzdusd"},
-                {"text": label("USDJPY", "p_usdjpy"), "callback_data": "p_usdjpy"},
-                {"text": label("USDCHF", "p_usdchf"), "callback_data": "p_usdchf"},
-                {"text": label("USDCAD", "p_usdcad"), "callback_data": "p_usdcad"}
+                {"text": label("NZDUSD"), "callback_data": "p_nzdusd"},
+                {"text": label("USDJPY"), "callback_data": "p_usdjpy"},
+                {"text": label("USDCHF"), "callback_data": "p_usdchf"},
+                {"text": label("USDCAD"), "callback_data": "p_usdcad"}
             ],
             [{"text": "🔹 EUR CROSSES 🔹", "callback_data": "none"}],
             [
-                {"text": label("EURGBP", "p_eurgbp"), "callback_data": "p_eurgbp"},
-                {"text": label("EURJPY", "p_eurjpy"), "callback_data": "p_eurjpy"},
-                {"text": label("EURCHF", "p_eurchf"), "callback_data": "p_eurchf"}
+                {"text": label("EURGBP"), "callback_data": "p_eurgbp"},
+                {"text": label("EURJPY"), "callback_data": "p_eurjpy"},
+                {"text": label("EURCHF"), "callback_data": "p_eurchf"}
             ],
             [
-                {"text": label("EURCAD", "p_eurcad"), "callback_data": "p_eurcad"},
-                {"text": label("EURAUD", "p_euraud"), "callback_data": "p_euraud"},
-                {"text": label("EURNZD", "p_eurnzd"), "callback_data": "p_eurnzd"}
+                {"text": label("EURCAD"), "callback_data": "p_eurcad"},
+                {"text": label("EURAUD"), "callback_data": "p_euraud"},
+                {"text": label("EURNZD"), "callback_data": "p_eurnzd"}
             ],
             [{"text": "🔹 GBP CROSSES 🔹", "callback_data": "none"}],
             [
-                {"text": label("GBPJPY", "p_gbpjpy"), "callback_data": "p_gbpjpy"},
-                {"text": label("GBPCHF", "p_gbpchf"), "callback_data": "p_gbpchf"},
-                {"text": label("GBPCAD", "p_gbpcad"), "callback_data": "p_gbpcad"}
+                {"text": label("GBPJPY"), "callback_data": "p_gbpjpy"},
+                {"text": label("GBPCHF"), "callback_data": "p_gbpchf"},
+                {"text": label("GBPCAD"), "callback_data": "p_gbpcad"}
             ],
             [
-                {"text": label("GBPAUD", "p_gbpaud"), "callback_data": "p_gbpaud"},
-                {"text": label("GBPNZD", "p_gbpnzd"), "callback_data": "p_gbpnzd"}
+                {"text": label("GBPAUD"), "callback_data": "p_gbpaud"},
+                {"text": label("GBPNZD"), "callback_data": "p_gbpnzd"}
             ],
             [{"text": "🔹 AUD / NZD / CAD / CHF 🔹", "callback_data": "none"}],
             [
-                {"text": label("AUDJPY", "p_audjpy"), "callback_data": "p_audjpy"},
-                {"text": label("AUDCHF", "p_audchf"), "callback_data": "p_audchf"},
-                {"text": label("AUDCAD", "p_audcad"), "callback_data": "p_audcad"},
-                {"text": label("AUDNZD", "p_audnzd"), "callback_data": "p_audnzd"}
+                {"text": label("AUDJPY"), "callback_data": "p_audjpy"},
+                {"text": label("AUDCHF"), "callback_data": "p_audchf"},
+                {"text": label("AUDCAD"), "callback_data": "p_audcad"},
+                {"text": label("AUDNZD"), "callback_data": "p_audnzd"}
             ],
             [
-                {"text": label("NZDJPY", "p_nzdjpy"), "callback_data": "p_nzdjpy"},
-                {"text": label("NZDCHF", "p_nzdchf"), "callback_data": "p_nzdchf"},
-                {"text": label("NZDCAD", "p_nzdcad"), "callback_data": "p_nzdcad"}
+                {"text": label("NZDJPY"), "callback_data": "p_nzdjpy"},
+                {"text": label("NZDCHF"), "callback_data": "p_nzdchf"},
+                {"text": label("NZDCAD"), "callback_data": "p_nzdcad"}
             ],
             [
-                {"text": label("CADJPY", "p_cadjpy"), "callback_data": "p_cadjpy"},
-                {"text": label("CADCHF", "p_cadchf"), "callback_data": "p_cadchf"},
-                {"text": label("CHFJPY", "p_chfjpy"), "callback_data": "p_chfjpy"}
+                {"text": label("CADJPY"), "callback_data": "p_cadjpy"},
+                {"text": label("CADCHF"), "callback_data": "p_cadchf"},
+                {"text": label("CHFJPY"), "callback_data": "p_chfjpy"}
             ]
         ]
     }
     return keyboard
 
-# প্রথমবার প্যানেল পাঠানোর ফাংশন
 def send_pair_selection_panel():
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
-        "text": f"🎛 **Quotex Master Control Panel**\n\nযেকোনো একটি পেয়ার সিলেক্ট করুন। বর্তমানে অ্যাক্টিভ পেয়ারের পাশে একটি টিকচিহ্ন (✅) দেখতে পাবেন।",
+        "text": f"🎛 **Quotex Master Control Panel**\n\nযেকোনো একটি পেয়ার সিলেক্ট করুন। বর্তমানে্যাক্টিভ পেয়ারের পাশে একটি টিকচিহ্ন (✅) দেখতে পাবেন।",
         "reply_markup": generate_keyboard(),
         "parse_mode": "Markdown"
     }
     try: requests.post(url, json=payload)
     except Exception as e: print(f"Panel Error: {e}")
 
-# বাটন ক্লিক করার পর প্যানেল এডিট/আপডেট করার ফাংশন
 def update_pair_selection_panel(message_id):
     url = f"https://api.telegram.org/bot{TOKEN}/editMessageReplyMarkup"
     payload = {
@@ -236,8 +232,3 @@ if __name__ == "__main__":
     
     t2 = Thread(target=set_webhook)
     t2.start()
-    
-    from werkzeug.serving import make_server
-    port = int(os.environ.get("PORT", 8080))
-    srv = make_server('0.0.0.0', port, app)
-    srv.serve_forever()
